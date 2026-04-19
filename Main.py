@@ -4,15 +4,14 @@ import random
 
 from ursina import texture
 
-# --- Инициализация приложения ---
 app = Ursina()
 
-# --- Параметры игры ---
+# Загрузка настроек
 with open("Settings.txt", "r") as file:
 	GRID_SIZE = int(file.readline())  # Размер сетки
-	MINES_COUNT = int(file.readline())  # Количество мин
+	MINES_COUNT = int(file.readline())	# Количество мин
 
-# --- Игровые переменные ---
+# Игровые переменные
 grid = []
 game_over = False
 mines_placed = False
@@ -26,7 +25,8 @@ nerd_model_details = {
 	"Brown": Entity(model="Models/Nerd/Brown.ply", color=color.brown, parent=nerd_model),#, scale=1.1, y=1),
 	"White": Entity(model="Models/Nerd/White.ply", color=color.rgb(0.8, 0.7, 0.6), parent=nerd_model),
 	"Blue": Entity(model="Models/Nerd/Blue.ply", color=color.rgb(0.3, 0.5, 0.8), parent=nerd_model),#, scale=1.2),
-	"Black": Entity(model="Models/Nerd/Black.ply", color=color.rgb(0.1, 0.1, 0.1), parent=nerd_model),
+	"Black": Entity(model="Models/Nerd/Black.ply", color=color.rgb(0.1, 0.1, 0.1), parent=nerd_model)
+	
 	}
 game_ended = False
 game_sounds_playing = False
@@ -58,6 +58,7 @@ def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_textu
 		)
 	
 	# Текст в окне
+	
 	popup_text = Text(
 		parent=popup,
 		text=text,
@@ -117,15 +118,16 @@ def show_dialogue(dialogue_texts, on_complete=None):
 		position=(-50, 1),
 		origin=(0, 0),
 		line_height=1.1,  # Высота строки
-		x=0,              # Смещение текста
-		y=0.2             # Смещение текста
+		x=0,			  # Смещение текста
+		y=0.2			 # Смещение текста
 	)
 	
 	text_index = 0
 	is_typing = False
 
-	# Функция для переноса текста по ширине (например, 50 символов)
 	def wrap_text(text):
+		
+		"""Перенос текста по ширине экрана"""
 
 		words = text.split(" ")
 		lines = []
@@ -198,8 +200,9 @@ def show_dialogue(dialogue_texts, on_complete=None):
 	
 	dialogue_box.input = input
 
-# --- Генерация сетки ---
 def create_grid():
+
+	"""Генерация сетки"""
 
 	global grid
 	grid = []
@@ -220,15 +223,16 @@ def create_grid():
 		})
 
 
-# --- Расстановка мин ---
 def place_mines():
+	"""Расстановка мин"""
 	mine_positions = random.sample(grid, MINES_COUNT)
 	for mine in mine_positions:
 		mine["is mine"] = True
 
-
-# --- Поиск соседей ---
 def get_neighbors(block, find_mini_blocks=False, from_mini_block=False):
+
+	"""Поиск соседей"""
+
 	x, y, z = (block if from_mini_block else block["entity"]).position
 	neighbors = []
 
@@ -262,7 +266,7 @@ def calculate_mines():
 				for dz in [-1, 0, 1]:
 					if dx == 0 and dy == 0 and dz == 0:
 						continue
-		
+					
 					neighbor_pos = (x + dx, y + dy, z + dz)
 					neighbor = grid_dict.get(neighbor_pos)
 					
@@ -306,8 +310,9 @@ def change_color(block, mini_block):
 		invoke(check_block, delay=0.1)
 	check_block()
 
-# --- Открытие блока ---
 def reveal_block(block):
+
+	"""Открытие блока"""
 
 	global mines_placed, game_sounds, game_sounds_playing
 
@@ -326,7 +331,7 @@ def reveal_block(block):
 				for b in grid:
 					b["is mine"] = False
 					b["mines_around"] = 0
-		mines_placed = True
+	mines_placed = True
 
 	if block["is mine"]:
 		shrink_and_destroy(block["entity"])
@@ -357,8 +362,10 @@ def reveal_block(block):
 		game_sounds_playing = True
 
 
-# --- Управление вводом ---
 def input(key):
+
+	"""Управление вводом"""
+
 	global Menu, Settings, Education, game_ended, game_sounds, game_sounds_playing
 	
 	if Menu and key == "left mouse down":
@@ -826,8 +833,9 @@ def update():
 				grid.append(Entity(model="Models/Number cube.obj",texture="Textures/1.png", color=color.light_gray, position=(3, 2, -3), collider="box", scale=0.001))
 				grid[-1].animate_scale((0.3, 0.3, 0.3), curve=curve.in_out_quad, duration=0.5)
 			
-# --- Проверка на победу ---
 def check_win():
+
+	"""Проверка на победу"""
 	
 	for block in grid:
 		if not block["is mine"] and not block["is_revealed"]:
@@ -837,4 +845,3 @@ def check_win():
 Menu = True
 Sky(texture="Textures/Skybox.png")
 app.run()
-

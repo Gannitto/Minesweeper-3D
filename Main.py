@@ -16,6 +16,7 @@ grid = []
 game_over = False
 mines_placed = False
 mini_blocks = []
+last_mini_blocks = {} # Мини-блоки, которые были удалены
 dialogue_num = 0
 current_dialogue_num = None
 dialogue_sound = Audio()
@@ -214,9 +215,9 @@ def create_grid():
 		grid.append({
 			"entity": block,
 			"is mine": False,
-			"is_revealed": False,
+			"is revealed": False,
 			"is flagged": False,
-			"mines_around": 0,
+			"mines around": 0,
 			"uzbek": uzbek == 1,
 			"hovered": False,
 			"dop flag": None
@@ -249,33 +250,35 @@ def get_neighbors(block, find_mini_blocks=False, from_mini_block=False):
 					neighbors.append(neighbor)
 	return neighbors
 
-
 def calculate_mines():
+
 	grid_dict = {(block["entity"].position.x, block["entity"].position.y, block["entity"].position.z): block for block in grid}
-	
+
 	for block in grid:
+
 		if block["is mine"]:
 			continue
-		
+				
 		x, y, z = block["entity"].position
 		mines_around = 0
-		
+			
 		# Перебираем только 26 соседей
 		for dx in [-1, 0, 1]:
 			for dy in [-1, 0, 1]:
 				for dz in [-1, 0, 1]:
 					if dx == 0 and dy == 0 and dz == 0:
 						continue
-					
+						
 					neighbor_pos = (x + dx, y + dy, z + dz)
 					neighbor = grid_dict.get(neighbor_pos)
 					
 					if neighbor and neighbor["is mine"]:
 						mines_around += 1
 		
-		block["mines_around"] = mines_around
+		block["mines around"] = mines_around
 
 def shrink_and_destroy(block_entity, duration=0.3):
+
 	"""
 	Постепенно уменьшает блок и уничтожает его по завершению.
 	block_entity: Entity, который будет уменьшен.
@@ -323,26 +326,26 @@ def reveal_block(block):
 
 	global mines_placed, game_sounds, game_sounds_playing
 
-	if block["is_revealed"] or block["is flagged"]:
+	if block["is revealed"] or block["is flagged"]:
 		return
 
-	block["is_revealed"] = True
+	block["is revealed"] = True
 
 	if not mines_placed:
 		while True:
 			place_mines()
 			calculate_mines()
-			if not block["is mine"] and block["mines_around"] == 0:
+			if not block["is mine"] and block["mines around"] == 0:
 				break
 			else:
 				for b in grid:
 					b["is mine"] = False
-					b["mines_around"] = 0
+					b["mines around"] = 0
 	mines_placed = True
 
 	if block["is mine"]:
 		shrink_and_destroy(block["entity"])
-		grid.append({"entity": Entity(model="Models/Mine.obj", position=block["entity"].position, texture="Textures/Cell.png", color=color.black, scale=0.5), "is mine": False, "is_revealed": False, "is flagged": False, "mines_around": 0, "uzbek": False, "hovered": False})
+		grid.append({"entity": Entity(model="Models/Mine.obj", position=block["entity"].position, texture="Textures/Cell.png", color=color.black, scale=0.5), "is mine": False, "is revealed": False, "is flagged": False, "mines around": 0, "uzbek": False, "hovered": False})
 		for b in mini_blocks:
 			shrink_and_destroy(b)
 		for b in grid:
@@ -358,11 +361,11 @@ def reveal_block(block):
 	neighbors = get_neighbors(block)
 	block["entity"].color = color.white
 	
-	if block["mines_around"] > 0 and block["mines_around"] > all(map(lambda b: b["is flagged"], neighbors)):
-		mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines_around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
+	if block["mines around"] > 0 and block["mines around"] > all(map(lambda b: b["is flagged"], neighbors)):
+		mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
 	else:
 		for neighbor in neighbors:
-			if not neighbor["is_revealed"]:
+			if not neighbor["is revealed"]:
 				reveal_block(neighbor)
 	shrink_and_destroy(block["entity"])
 	grid.remove(block)
@@ -375,7 +378,7 @@ def input(key):
 
 	"""Управление вводом"""
 
-	global Menu, Settings, Education, game_ended, game_sounds, game_sounds_playing
+	global Menu, Settings, Education, game_ended, game_sounds, game_sounds_playing, last_mini_blocks
 	
 	if Menu and key == "left mouse down":
 	
@@ -502,6 +505,7 @@ def input(key):
 	block = next((b for b in grid if b["entity"] == hit_info), None)
 	
 	if block:
+
 		if key in ["right mouse down", "left mouse down"] and block["uzbek"]:
 			popup("Поздравляю, вы нашли посхалко! С шансом 0.001% появляется такая текстура")
 			block["uzbek"] = False
@@ -510,25 +514,48 @@ def input(key):
 			game_sounds_playing = False
 			reveal_block(block)
 
-		if key == "right mouse down" and not block["is_revealed"]:
+		if key == "right mouse down" and not block["is revealed"]:
+
 			if block["is flagged"]:
 				block["entity"].model = "cube"
-				block["entity"].color = color.white
+				block["entity"].animate_color(color.white, duration=0.3, curve=curve.in_out_quad)
 				block["entity"].texture = "Textures/Cell.png"
 				block["entity"].collider = "box"
 				block["is flagged"] = False
 				destroy(block["dop flag"])
 				game_sounds = Audio("Sounds/Pop.mp3")
+
+				x, y, z = block["entity"].position
+				mines_around = 0
+				for a in last_mini_blocks:
+					print(last_mini_blocks[a].position, a)
+				# Перебираем только 26 соседей
+				for dx in [-1, 0, 1]:
+					for dy in [-1, 0, 1]:
+						for dz in [-1, 0, 1]:
+							if dx == 0 and dy == 0 and dz == 0:
+								continue
+								
+							neighbor_pos = Vec3(x + dx, y + dy, z + dz)
+							print(neighbor_pos)
+							if neighbor_pos in last_mini_blocks:
+								print(123)
+								grid.append(last_mini_blocks[neighbor_pos])
+								grid[-1].visible = True
+								del last_mini_blocks[neighbor_pos]
+
 			else:
 				block["entity"].model = "Models/Flag.obj"
-				block["entity"].animate_color(color.rgb(0.3, 0.3, 0.3), duration=0.3)
+				block["entity"].animate_color(color.rgb(0.3, 0.3, 0.3), duration=0.3, curve=curve.in_out_quad)
 				block["entity"].collider = "mesh"
 				block["dop flag"] = Entity(model="Models/Red flag.obj", parent=block["entity"], color=color.red)
 				block["is flagged"] = True
 				game_sounds = Audio("Sounds/Pop.mp3")
 
 		for b in get_neighbors(block, True):
-			if all([n["is flagged"] for n in get_neighbors({"entity": b})]):
+			if all([n["is flagged"] for n in get_neighbors({"entity": b})]):     # ВОТ ТУТ ОШИБКА КАКАЯ-ТО
+				last_mini_blocks[b.position] = (Entity(model="Models/Number cube.obj",texture=b.texture, color=color.light_gray, position=b.position, collider="box", scale=0.3))
+				last_mini_blocks[b.position].visible = False
 				shrink_and_destroy(b)
 				mini_blocks.remove(b)
 
@@ -584,7 +611,7 @@ Settings = False
 
 def end_game():
 
-	global Menu, game_ended, grid, game_over, mines_placed, mini_blocks
+	global Menu, game_ended, grid, game_over, mines_placed, mini_blocks, last_mini_blocks
 
 	Menu = True
 	play_button.visible = True
@@ -604,6 +631,7 @@ def end_game():
 	mines_placed = False
 	for b in mini_blocks: destroy(b)
 	mini_blocks = []
+	last_mini_blocks = {}
 	EditorCamera()
 	EditorCamera.enabled = False
 
@@ -849,7 +877,7 @@ def check_win():
 	"""Проверка на победу"""
 	
 	for block in grid:
-		if not block["is mine"] and not block["is_revealed"]:
+		if not block["is mine"] and not block["is revealed"]:
 			return False
 	return True
 

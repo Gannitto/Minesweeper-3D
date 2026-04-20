@@ -22,9 +22,9 @@ dialogue_sound = Audio()
 game_sounds = Audio()
 nerd_model = Entity(visible=False, rotation=(-90, 180, 0), scale=0.7)
 nerd_model_details = {
-	"Brown": Entity(model="Models/Nerd/Brown.ply", color=color.brown, parent=nerd_model),#, scale=1.1, y=1),
+	"Brown": Entity(model="Models/Nerd/Brown.ply", color=color.brown, parent=nerd_model),
 	"White": Entity(model="Models/Nerd/White.ply", color=color.rgb(0.8, 0.7, 0.6), parent=nerd_model),
-	"Blue": Entity(model="Models/Nerd/Blue.ply", color=color.rgb(0.3, 0.5, 0.8), parent=nerd_model),#, scale=1.2),
+	"Blue": Entity(model="Models/Nerd/Blue.ply", color=color.rgb(0.3, 0.5, 0.8), parent=nerd_model),
 	"Black": Entity(model="Models/Nerd/Black.ply", color=color.rgb(0.1, 0.1, 0.1), parent=nerd_model)
 	
 	}
@@ -104,7 +104,7 @@ def show_dialogue(dialogue_texts, on_complete=None):
 
 	dialogue_box = Entity(
 		parent=camera.ui,
-		model='quad',
+		model="quad",
 		scale=(1.8, 0.3),
 		color=color.black66,
 		position=(0, -0.4),
@@ -143,7 +143,7 @@ def show_dialogue(dialogue_texts, on_complete=None):
 		if current_line:
 			lines.append(current_line)
 
-		return '\n'.join(lines)
+		return "\n".join(lines)
 
 	def type_text(text):
 
@@ -302,9 +302,16 @@ def change_color(block, mini_block):
 	
 	block["hovered"] = True
 	block["entity"].animate_color(color.rgb(0.9, 0.9, 1.0), duration=0.3, curve=curve.in_out_quad)
+	if block["is flagged"]:
+		block["dop flag"].animate_color(color.rgb(0.9, 0.9, 1.0), duration=0.3, curve=curve.in_out_quad)
+
 	def check_block():
 		if mini_block != mouse.hovered_entity:
-			block["entity"].animate_color(color.rgb(1.0, 1.0, 1.0), duration=0.3, curve=curve.in_out_quad)
+			if block["is flagged"]:
+				block["entity"].animate_color(color.rgb(0.3, 0.3, 0.3), duration=0.3, curve=curve.in_out_quad)
+				block["dop flag"].animate_color(color.red, duration=0.3, curve=curve.in_out_quad)
+			else:
+				block["entity"].animate_color(color.rgb(1.0, 1.0, 1.0), duration=0.3, curve=curve.in_out_quad)
 			block["hovered"] = False
 			return
 		invoke(check_block, delay=0.1)
@@ -348,11 +355,13 @@ def reveal_block(block):
 		game_over = True
 		return
 
+	neighbors = get_neighbors(block)
 	block["entity"].color = color.white
-	if block["mines_around"] > 0:
+	
+	if block["mines_around"] > 0 and block["mines_around"] > all(map(lambda b: b["is flagged"], neighbors)):
 		mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines_around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
 	else:
-		for neighbor in get_neighbors(block):
+		for neighbor in neighbors:
 			if not neighbor["is_revealed"]:
 				reveal_block(neighbor)
 	shrink_and_destroy(block["entity"])
@@ -512,7 +521,7 @@ def input(key):
 				game_sounds = Audio("Sounds/Pop.mp3")
 			else:
 				block["entity"].model = "Models/Flag.obj"
-				block["entity"].color = color.rgb(0.3, 0.3, 0.3)
+				block["entity"].animate_color(color.rgb(0.3, 0.3, 0.3), duration=0.3)
 				block["entity"].collider = "mesh"
 				block["dop flag"] = Entity(model="Models/Red flag.obj", parent=block["entity"], color=color.red)
 				block["is flagged"] = True
@@ -593,7 +602,7 @@ def end_game():
 	grid = []
 	game_over = False
 	mines_placed = False
-	for mini_blocks in grid: destroy(b)
+	for b in mini_blocks: destroy(b)
 	mini_blocks = []
 	EditorCamera()
 	EditorCamera.enabled = False
@@ -605,7 +614,7 @@ def update():
 	mini_block = next((b for b in mini_blocks if b == mouse.hovered_entity), None)
 	if mini_block:
 		for b in get_neighbors(mini_block, from_mini_block=True):
-			if not b["hovered"] and not b["is flagged"]:
+			if not b["hovered"]:
 				change_color(b, mini_block)
 	# Меню
 	if Menu:
@@ -657,9 +666,11 @@ def update():
 		
 		if game_over:
 			popup("Вы програли, сочувствую...", emoji_texture="Textures/Sad emoji.png", on_continue=end_game)
+			game_sounds = Audio("Sounds/Game over.mp3")
 			game_ended = True
 		if check_win():
-			popup("Поздравляю, вы выиграли!", emoji_texture="Firecracker.png", on_continue=end_game)			
+			popup("Поздравляю, вы выиграли!", emoji_texture="Firecracker.png", on_continue=end_game)
+			game_sounds = Audio("Sounds/Win.mp3")
 			game_ended = True
 			
 	if current_dialogue_num != dialogue_num:

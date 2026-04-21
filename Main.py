@@ -540,8 +540,8 @@ def input(key):
 							print(neighbor_pos)
 							if neighbor_pos in last_mini_blocks:
 								print(123)
-								grid.append(last_mini_blocks[neighbor_pos])
-								grid[-1].visible = True
+								mini_blocks.append(last_mini_blocks[neighbor_pos])
+								mini_blocks[-1].visible = True
 								del last_mini_blocks[neighbor_pos]
 
 			else:

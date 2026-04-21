@@ -1,14 +1,18 @@
 from itertools import product
 from ursina import *
 import random
+from collections import deque
 
 app = Ursina()
 
 # Загрузка настроек
-with open("Settings.txt", "r") as file:
-	GRID_SIZE = int(file.readline())  # Размер сетки
-	MINES_COUNT = int(file.readline())	# Количество мин
-
+try:
+    with open("Settings.txt", "r") as file:
+        GRID_SIZE = int(file.readline())
+        MINES_COUNT = int(file.readline())
+except:
+    GRID_SIZE = 5  # значение по умолчанию
+    MINES_COUNT = 4
 Text.default_font = "./Font.ttf"
 
 # Игровые переменные
@@ -230,11 +234,27 @@ def create_grid():
 		})
 
 
-def place_mines():
+def place_mines(pos):
+
 	"""Расстановка мин"""
-	mine_positions = random.sample(grid, MINES_COUNT)
+	
+	mine_positions = []
+
+	for _ in range(MINES_COUNT):
+		new_mine = True
+		while new_mine:
+			
+			x = random.randint(0, GRID_SIZE - 1)
+			y = random.randint(0, GRID_SIZE - 1)
+			z = random.randint(0, GRID_SIZE - 1)
+			
+			if not ((x, y, z) in mine_positions) and not (pos[0] - 1 <= x <= pos[0] + 1 and pos[1] - 1 <= y <= pos[1] + 1 and pos[2] - 1 <= z <= pos[2] + 1):
+				mine_positions.append((x, y, z))
+				new_mine = False
+
 	for mine in mine_positions:
-		mine["is mine"] = True
+		grid[(mine[0] * GRID_SIZE**2) + (mine[1] * GRID_SIZE) + mine[2]]["is mine"] = True
+	calculate_mines()
 
 def get_neighbors(block, find_mini_blocks=False, from_mini_block=False):
 
@@ -326,58 +346,55 @@ def change_color(block, mini_block):
 		invoke(check_block, delay=0.1)
 	check_block()
 
-def reveal_block(block):
+def reveal_block(start_block):
 
 	"""Открытие блока"""
-
+		
 	global mines_placed, game_sounds, game_sounds_playing
 
-	if block["is revealed"] or block["is flagged"]:
-		return
+	queue = deque([start_block])
 
-	block["is revealed"] = True
+	while queue:
 
-	if not mines_placed:
-		while True:
-			place_mines()
-			calculate_mines()
-			if not block["is mine"] and block["mines around"] == 0:
-				break
-			else:
-				for b in grid:
-					b["is mine"] = False
-					b["mines around"] = 0
-	mines_placed = True
+		block = queue.popleft()
 
-	if block["is mine"]:
-		shrink_and_destroy(block["entity"])
-		grid.append({"entity": Entity(model="Models/Mine.obj", position=block["entity"].position, texture="Textures/Cell.png", color=color.black, scale=0.5), "is mine": False, "is revealed": False, "is flagged": False, "mines around": 0, "uzbek": False, "hovered": False})
-		for b in mini_blocks:
-			shrink_and_destroy(b)
-		for b in grid:
-			b["entity"].color = (255, 255, 255, 0.3)
-			if b["is mine"]:
-				b["entity"].model = "Models/Mine.obj"
-				b["entity"].color = color.black
-				b["entity"].scale = 0.5
-		global game_over
-		game_over = True
-		return
+		if block["is revealed"] or block["is flagged"]:
+			continue
 
-	neighbors = get_neighbors(block)
-	block["entity"].color = color.white
+		block["is revealed"] = True
 	
-	if block["mines around"] > 0 and block["mines around"] > all(map(lambda b: b["is flagged"], neighbors)):
-		mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
-	else:
-		for neighbor in neighbors:
-			if not neighbor["is revealed"]:
-				reveal_block(neighbor)
-	shrink_and_destroy(block["entity"])
-	grid.remove(block)
-	if not game_sounds_playing:
-		game_sounds = Audio("Sounds/Pup.mp3")
-		game_sounds_playing = True
+		if not mines_placed:
+			place_mines((block["entity"].position[0] - GRID_SIZE * 0.5, block["entity"].position[1] - GRID_SIZE * 0.5, block["entity"].position[2] - GRID_SIZE * 0.5))
+			mines_placed = True
+		if block["is mine"]:
+			shrink_and_destroy(block["entity"])
+			grid.append({"entity": Entity(model="Models/Mine.obj", position=block["entity"].position, texture="Textures/Cell.png", color=color.black, scale=0.5), "is mine": False, "is revealed": False, "is flagged": False, "mines around": 0, "uzbek": False, "hovered": False})
+			for b in mini_blocks:
+				shrink_and_destroy(b)
+			for b in grid:
+				b["entity"].color = color.rgba(255, 255, 255, 0.3)
+				if b["is mine"]:
+					b["entity"].model = "Models/Mine.obj"
+					b["entity"].color = color.black
+					b["entity"].scale = 0.5
+			global game_over
+			game_over = True
+			return
+
+		neighbors = get_neighbors(block)
+		block["entity"].color = color.white
+	
+		if block["mines around"] > 0 and block["mines around"] > all(map(lambda b: b["is flagged"], neighbors)):
+			mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
+		else:
+			for neighbor in neighbors:
+				if not neighbor["is revealed"]:
+					queue.append(neighbor)
+		shrink_and_destroy(block["entity"])
+		grid.remove(block)
+		if not game_sounds_playing:
+			game_sounds = Audio("Sounds/Pup.mp3")
+			game_sounds_playing = True
 
 
 def input(key):

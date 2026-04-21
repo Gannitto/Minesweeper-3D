@@ -2,14 +2,14 @@ from itertools import product
 from ursina import *
 import random
 
-from ursina import texture
-
 app = Ursina()
 
 # Загрузка настроек
 with open("Settings.txt", "r") as file:
 	GRID_SIZE = int(file.readline())  # Размер сетки
 	MINES_COUNT = int(file.readline())	# Количество мин
+
+Text.default_font = "./Font.ttf"
 
 # Игровые переменные
 grid = []
@@ -31,6 +31,7 @@ nerd_model_details = {
 	}
 game_ended = False
 game_sounds_playing = False
+dialogue_box = None
 
 def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_texture=None):
 
@@ -39,18 +40,19 @@ def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_textu
 	text: Текст сообщения в окне.
 	on_continue: Функция, вызываемая при нажатии на "Продолжить".
 	"""
-
+	
 	# Окно
 	popup = Entity(
 		parent=camera.ui,
-		model="quad",
+		model=Quad(radius=0.05),
 		color=color.rgba(0, 0, 0, 0.5),
 		scale=(0.8, 0.6),
 		position=(0, 0, -0.5)
 	)
+
 	if emoji_texture is not None:
 		# Смайлик
-		emoji = Entity(
+		Entity(
 			parent=popup,
 			model="quad",
 			position=(0, 0.3),
@@ -60,7 +62,7 @@ def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_textu
 	
 	# Текст в окне
 	
-	popup_text = Text(
+	Text(
 		parent=popup,
 		text=text,
 		scale=text_scale,
@@ -78,16 +80,17 @@ def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_textu
 		if on_continue:
 			on_continue()
 	# Кнопка "Продолжить"
-	continue_button = Button(
+	Button(
 		parent=popup,
 		color=color.rgba(0, 0, 0, 0.5),
 		scale=(0.5, 0.3),
 		position=(0, -0.3),
 		on_click=lambda: close_popup(),
-		collider="box"
+		collider="box",
+		model=Quad(radius=0.05)
 	)
 
-	continue_text= Text("Продолжить", scale=text_scale, position=(0, -0.3), origin=(0, 0), parent=popup)
+	Text("Продолжить", scale=text_scale, position=(0, -0.3), origin=(0, 0), parent=popup)
 
 def show_dialogue(dialogue_texts, on_complete=None):
 
@@ -99,28 +102,27 @@ def show_dialogue(dialogue_texts, on_complete=None):
 
 	"""
 
-	global is_showing_dialogue
+	global is_showing_dialogue, dialogue_box
 
 	is_showing_dialogue = True
 
 	dialogue_box = Entity(
 		parent=camera.ui,
 		model="quad",
-		scale=(1.8, 0.3),
-		color=color.black66,
-		position=(0, -0.4),
-		z=-1
+		scale=(window.size[0] / window.size[1], 1),
+		position=(0, 0),
+		z=0,
+		texture="./Textures/Dialogue box.png"
 	)
 	
 	dialogue_text = Text(
 		text="",
 		parent=dialogue_box,
-		scale=(1, 5),
-		position=(-50, 1),
+		scale=(0.8, window.size[0] / window.size[1] * 0.8),
 		origin=(0, 0),
 		line_height=1.1,  # Высота строки
 		x=0,			  # Смещение текста
-		y=0.2			 # Смещение текста
+		y=-0.3		   	 # Смещение текста
 	)
 	
 	text_index = 0
@@ -173,8 +175,11 @@ def show_dialogue(dialogue_texts, on_complete=None):
 	
 	def next_dialogue():
 
-		global is_showing_dialogue
+		global is_showing_dialogue, game_sounds
 		nonlocal text_index, is_typing
+
+		game_sounds = Audio("Sounds/Button.mp3")
+
 		if is_typing:
 			# Если текст ещё печатается — мгновенно отобразить весь текст
 			dialogue_text.text = wrap_text(dialogue_texts[text_index])
@@ -198,6 +203,7 @@ def show_dialogue(dialogue_texts, on_complete=None):
 	def input(key):
 		if key.endswith(" up"):
 			next_dialogue()
+		dialogue_box.scale = (window.size[0]/window.size[1], 1)
 	
 	dialogue_box.input = input
 
@@ -442,7 +448,7 @@ def input(key):
 			
 			def end_education():
 			
-				global Menu, game_ended, Education, grid, dialogue_num
+				global Menu, game_ended, Education, grid, dialogue_num, game_over, mines_placed
 				
 				Menu = True
 				Education = False
@@ -466,9 +472,30 @@ def input(key):
 				nerd_model.visible = False
 				dialogue_num = 0
 				camera.position = (0, 0, -20)
-				
-				
-			show_dialogue(["*Нажмите любую клавишу, чтобы начать обучение*", "Привет, я Нёрдик!", "Сейчас я расскажу тебе о том, как играть в Сапёр-3D. Это легче, чем кажется.", "Стоит начать с объяснений правил обычного сапёра.", "На игровом поле случайным образом разбросаны мины. Цель игрока - обозначить все мины на карте и открыть все пустые клетки.", "Белые клетки уже открыты, а серые - ещё нет.", "На некоторых клетках видны цифры, которые показывают количество мин вокруг него.", "Вокруг этой клетки находится 2 мины", "Вокруг этой клетки всего 1 мина", "А вокруг тех, что без цифр, мин нету.", "Теперь снова обратим внимание на эту клетку. Рядом с ней не открыто 2 клетки, а так же, вокруг неё 2 мины. Совпадение?", "Нет, это не совпадение. Эти 2 клетки точно являются минами, ведь больше неоткрытых клеток нету.", "Есть и обратная тактика - искать НЕ мины. Раз вокруг этой клетки 2 мины, а мы их уже нашли, то остальные клетки можно открыть.", "Конечно, есть и другие, более сложные способы нахождения мин, но я объяснил только самые основные, которые применяются чаще всего.", "Теперь посмотрим, как это будет выглядеть в 3D", "Как мы видим, вокруг каждой клетки уже не 8 соседей, а целых 26! Каждый из них относится к указанной клетке и может быть миной. Решать тут надо по таким же тактикам.", "Так же, в игре есть маленькие блоки с цифрами, которые указывают на количество мин вокруг них. Если навести курсор на одного из них, то соседние клетки выделятся.", "Отлично, теперь про управление. Правая кнопка мыши позволит поставить флажок, а если её зажать, то можно вращать камеру.", "Чтобы открыть блок, нажми левой кнопкой мыши, а чтобы изменить положение точки вращения камеры, удерживай среднюю кнопку мыши.", "Поздравляю, обучение пройдено! Если что-то не понятно, пересмотри ещё раз. Удачи!"], end_education)
+			
+			# Текст диалога во время обучения
+
+			show_dialogue([
+				"*Нажмите любую клавишу, чтобы начать обучение*",
+				"Привет, я Нёрдик!", "Сейчас я расскажу тебе о том, как играть в Сапёр-3D. Это легче, чем кажется.",
+				"Стоит начать с объяснений правил обычного сапёра.",
+				"На игровом поле случайным образом разбросаны мины. Цель игрока - обозначить все мины на карте и открыть все пустые клетки.",
+				"Белые клетки уже открыты, а серые - ещё нет.",
+				"На некоторых клетках видны цифры, которые показывают количество мин вокруг него.",
+				"Вокруг этой клетки находится 2 мины",
+				"Вокруг этой клетки всего 1 мина",
+				"А вокруг тех, что без цифр, мин нету.",
+				"Теперь снова обратим внимание на эту клетку. Рядом с ней не открыто 2 клетки, а так же, вокруг неё 2 мины. Совпадение?",
+				"Нет, это не совпадение. Эти 2 клетки точно являются минами, ведь больше неоткрытых клеток нету.",
+				"Есть и обратная тактика - искать НЕ мины. Раз вокруг этой клетки 2 мины, а мы их уже нашли, то остальные клетки можно открыть.",
+				"Конечно, есть и другие, более сложные способы нахождения мин, но я объяснил только самые основные, которые применяются чаще всего.",
+				"Теперь посмотрим, как это будет выглядеть в 3D",
+				"Как мы видим, вокруг каждой клетки уже не 8 соседей, а целых 26! Каждый из них относится к указанной клетке и может быть миной. Решать тут надо по таким же тактикам.",
+				"Так же, в игре есть маленькие блоки с цифрами, которые указывают на количество мин вокруг них. Если навести курсор на одного из них, то соседние клетки выделятся.",
+				"Отлично, теперь про управление. Правая кнопка мыши позволит поставить флажок, а если её зажать, то можно вращать камеру.",
+				"Чтобы открыть блок, нажми левой кнопкой мыши, а чтобы изменить положение точки вращения камеры, удерживай среднюю кнопку мыши.",
+				"Поздравляю, обучение пройдено! Если что-то не понятно, пересмотри ещё раз. Удачи!"
+				], end_education)
 			
 	if Settings and key == "left mouse down" and settings_continue_button == mouse.hovered_entity:
 	
@@ -526,9 +553,7 @@ def input(key):
 				game_sounds = Audio("Sounds/Pop.mp3")
 
 				x, y, z = block["entity"].position
-				mines_around = 0
-				for a in last_mini_blocks:
-					print(last_mini_blocks[a].position, a)
+					
 				# Перебираем только 26 соседей
 				for dx in [-1, 0, 1]:
 					for dy in [-1, 0, 1]:
@@ -537,9 +562,7 @@ def input(key):
 								continue
 								
 							neighbor_pos = Vec3(x + dx, y + dy, z + dz)
-							print(neighbor_pos)
 							if neighbor_pos in last_mini_blocks:
-								print(123)
 								mini_blocks.append(last_mini_blocks[neighbor_pos])
 								mini_blocks[-1].visible = True
 								del last_mini_blocks[neighbor_pos]
@@ -553,7 +576,7 @@ def input(key):
 				game_sounds = Audio("Sounds/Pop.mp3")
 
 		for b in get_neighbors(block, True):
-			if all([n["is flagged"] for n in get_neighbors({"entity": b})]):     # ВОТ ТУТ ОШИБКА КАКАЯ-ТО
+			if all([n["is flagged"] for n in get_neighbors({"entity": b})]): 
 				last_mini_blocks[b.position] = (Entity(model="Models/Number cube.obj",texture=b.texture, color=color.light_gray, position=b.position, collider="box", scale=0.3))
 				last_mini_blocks[b.position].visible = False
 				shrink_and_destroy(b)
@@ -562,7 +585,7 @@ def input(key):
 menu_bg = Entity(model="quad", texture="Textures/Menu bg.mp4", z=1, scale=(window.aspect_ratio * 10, 10))
 play_button = Entity(
 	parent=camera.ui,
-	model="quad",
+	model=Quad(radius=0.05),
 	color=(0, 0, 0, 0.5),
 	scale=(0.5, 0.25),
 	z=-1,
@@ -574,7 +597,7 @@ play_text = Text("Начать игру", origin=(0, 0), scale=2, y=0.3)
 
 settings_button = Entity(
 	parent=camera.ui,
-	model="quad",
+	model=Quad(radius=0.05),
 	color=(0, 0, 0, 0.5),
 	scale=(0.5, 0.25),
 	z=-1,
@@ -585,7 +608,7 @@ settings_text = Text("Настройки", origin=(0, 0), scale=2)
 
 education_button = Entity(
 	parent=camera.ui,
-	model="quad",
+	model=Quad(radius=0.05),
 	color=(0, 0, 0, 0.5),
 	scale=(0.5, 0.25),
 	z=-1,
@@ -601,10 +624,10 @@ def update_sliders():
 	GRID_SIZE = grid_size_slider.value
 	MINES_COUNT = min(mines_count_slider.value, GRID_SIZE ** 3)
 
-settings_bg = Entity(parent=camera.ui, model="quad", color=color.rgba(0, 0, 0, 0.5), scale=(1.5, 0.8), visible=False)
+settings_bg = Entity(parent=camera.ui, model=Quad(radius=0.05), color=color.rgba(0, 0, 0, 0.5), scale=(1.5, 0.8), visible=False)
 grid_size_slider = Slider(1, 200, default=GRID_SIZE, step=1, text="Размер сетки", position=(-0.24, 0.2), scale=(1.5, 1.5), origin=(0, 0), visible=False, on_value_changed=update_sliders, enabled=False)
 mines_count_slider = Slider(1, GRID_SIZE ** 3, default=MINES_COUNT, step=1, text="Количество мин", position=(-0.24, 0), scale=(1.5, 1.5), origin=(0, 0), visible=False, on_value_changed=update_sliders, enabled=False)
-settings_continue_button = Entity(parent=camera.ui, model="quad", color=color.rgba(0, 0, 0, 0.5), scale=(0.5, 0.25), position=(0, -0.2), visible=False)
+settings_continue_button = Entity(parent=camera.ui, model=Quad(radius=0.05), color=color.rgba(0, 0, 0, 0.5), scale=(0.5, 0.25), position=(0, -0.2), visible=False)
 settings_continue_button_hovered = False
 settings_continue_text = Text("Подтвердить", origin=(0, 0), scale=2, y=-0.2, visible=False)
 Settings = False
@@ -637,7 +660,7 @@ def end_game():
 
 def update():
 
-	global play_button_hovered, settings_button_hovered, education_button_hovered, settings_continue_button_hovered, Menu, Education, game_ended, current_dialogue_num, grid, game_sounds
+	global play_button_hovered, settings_button_hovered, education_button_hovered, settings_continue_button_hovered, Menu, Education, game_ended, current_dialogue_num, grid, game_sounds, MINES_COUNT
 	
 	mini_block = next((b for b in mini_blocks if b == mouse.hovered_entity), None)
 	if mini_block:
@@ -689,7 +712,7 @@ def update():
 		elif settings_continue_button_hovered:
 			settings_continue_button.animate_color((0, 0, 0, 0.5), duration=0.2, curve=curve.in_out_quad)
 			settings_continue_button_hovered = False
-			
+		
 	elif not game_ended and not Education:
 		
 		if game_over:
@@ -700,7 +723,7 @@ def update():
 			popup("Поздравляю, вы выиграли!", emoji_texture="Firecracker.png", on_continue=end_game)
 			game_sounds = Audio("Sounds/Win.mp3")
 			game_ended = True
-			
+
 	if current_dialogue_num != dialogue_num:
 	
 		current_dialogue_num = dialogue_num

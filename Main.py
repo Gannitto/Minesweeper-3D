@@ -36,6 +36,7 @@ nerd_model_details = {
 game_ended = False
 game_sounds_playing = False
 dialogue_box = None
+is_showing_dialogue = False
 
 def popup(text="Сообщение", on_continue=None, text_scale=2, emoji_texture=None):
 

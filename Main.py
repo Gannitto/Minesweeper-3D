@@ -247,7 +247,6 @@ def place_mines(pos):
 			x = random.randint(0, GRID_SIZE - 1)
 			y = random.randint(0, GRID_SIZE - 1)
 			z = random.randint(0, GRID_SIZE - 1)
-			
 			if not ((x, y, z) in mine_positions) and not (pos[0] - 1 <= x <= pos[0] + 1 and pos[1] - 1 <= y <= pos[1] + 1 and pos[2] - 1 <= z <= pos[2] + 1):
 				mine_positions.append((x, y, z))
 				new_mine = False
@@ -364,7 +363,7 @@ def reveal_block(start_block):
 		block["is revealed"] = True
 	
 		if not mines_placed:
-			place_mines((block["entity"].position[0] - GRID_SIZE * 0.5, block["entity"].position[1] - GRID_SIZE * 0.5, block["entity"].position[2] - GRID_SIZE * 0.5))
+			place_mines((block["entity"].position[0] + GRID_SIZE * 0.5, block["entity"].position[1] + GRID_SIZE * 0.5, block["entity"].position[2] + GRID_SIZE * 0.5))
 			mines_placed = True
 		if block["is mine"]:
 			shrink_and_destroy(block["entity"])
@@ -385,7 +384,7 @@ def reveal_block(start_block):
 		block["entity"].color = color.white
 	
 		if block["mines around"] > 0 and block["mines around"] > all(map(lambda b: b["is flagged"], neighbors)):
-			mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block["mines around"]}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
+			mini_blocks.append(Entity(model="Models/Number cube.obj",texture=f"Textures/{block['mines around']}.png", color=color.light_gray, position=block["entity"].position, collider="box", scale=0.3))
 		else:
 			for neighbor in neighbors:
 				if not neighbor["is revealed"]:
@@ -670,6 +669,7 @@ def end_game():
 	game_over = False
 	mines_placed = False
 	for b in mini_blocks: destroy(b)
+	for b in last_mini_blocks: destroy(last_mini_blocks[b])
 	mini_blocks = []
 	last_mini_blocks = {}
 	EditorCamera()

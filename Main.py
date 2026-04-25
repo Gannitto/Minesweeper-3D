@@ -2,12 +2,17 @@ from itertools import product
 from ursina import *
 import random
 from collections import deque
+from pathlib import Path
 
 app = Ursina()
 
 # Загрузка настроек
+settings_dir = Path.home() / ".minesweeper-3d"
+settings_dir.mkdir(parents=True, exist_ok=True)
+settings_path = settings_dir / "Settings.txt"
+
 try:
-    with open("Settings.txt", "r") as file:
+    with open(settings_path, "r") as file:
         GRID_SIZE = int(file.readline())
         MINES_COUNT = int(file.readline())
 except:
@@ -537,7 +542,7 @@ def input(key):
 		settings_continue_button.collider = None
 		game_sounds = Audio("Sounds/Button.mp3")
 		
-		with open("Settings.txt", "w", encoding="utf-8") as f:
+		with open(settings_path, "w", encoding="utf-8") as f:
 			f.write(f"{GRID_SIZE}\n{MINES_COUNT}")
 	
 	if game_over: return
